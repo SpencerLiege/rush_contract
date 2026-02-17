@@ -1,11 +1,12 @@
 #[starknet::contract]
 pub mod RushEvents {
 
-    use starknet::{get_caller_address, ContractAddress};
+    use starknet::event::EventEmitter;
+use starknet::{get_caller_address, ContractAddress};
     use crate::interfaces::IRushEvents;
     use crate::types::{Config, PredictionEvent, Bet, EventResult};
     use crate::errors::Errors;
-    use crate::events::{EventAdded, EventStarted, EventEnded};
+    use crate::events::{EventAdded, EventStarted, EventEnded, EventResolved};
     use starknet::storage::{Map, StorageMapWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess, StoragePath, StoragePathEntry};
 
     #[storage]
@@ -23,7 +24,13 @@ pub mod RushEvents {
     pub enum Event {
         EventAdded: EventAdded,
         EventStarted: EventStarted,
-        EventEnded: EventEnded
+        EventEnded: EventEnded,
+        EventResolved: EventResolved
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub enum EventStatus {
+
     }
 
 
@@ -176,7 +183,7 @@ pub mod RushEvents {
             let participants: Array<ContractAddress> = self._get_participants(event_id);
 
             for user in participants {
-                let mut user_bet: StoragePath = self.user_bet.entry((user, event_id));
+                let mut user_bet: Bet = self.user_bet.read((user, event_id));
 
                 if event.binary.read() {
                     // seed the reward
@@ -197,13 +204,48 @@ pub mod RushEvents {
 
                         // record user success on prediction
                         if user_bet.pick == EventResult::Home && result == EventResult::Home {
-                            user_bet.
+                            user_bet.won = true;
+                            user_bet.reward = reward;
+                            user_bet.profit = reward - user_bet.amount;
                         }   
+
+                        if user_bet.pick == EventResult::Away && result == EventResult::Away {
+                            user_bet.won = true;
+                            user_bet.reward = reward;
+                            user_bet.profit = reward - user_bet.amount
+                        }
+                    } else {
+                        // refund the user if either pool is empty
+                        let empty_reward: u256 = user_bet.amount;
+
+                        // record user success
+                        if user_bet.pick == EventResult::Home && result == EventResult::Home {
+                            user_bet.won  = true;
+                        }
+
+                        if user_bet.pick == EventResult::Away && result == EventResult::Away {
+                            user_bet.won = true;
+                        }
+
+                        user_bet.refund = true;
+                        user_bet.reward = empty_reward;
+                        user_bet.profit = empty_reward - user_bet.amount
                     }
                 } else {
-
+                    // For non binary options
                 }
+
+
+                self.user_bet.write((user, event_id), user_bet)
             }
+
+
+            self.emit(EventResolved {
+                event_id,
+                result,
+                total_pool: event.total_pool.read(),
+                participants: self.event_participants_count.read(event_id)
+            })
             
         }
 
