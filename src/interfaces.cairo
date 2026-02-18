@@ -6,7 +6,8 @@ use rush_cairo::types::{PredictionEvent, Bet};
 #[starknet::interface]
 pub trait IRushEvents<TContractState> {
     // Execute messages
-    fn place_bet(ref self: TContractState, amount: u256, event_id: u64, pick: felt252 ) ;
+    fn place_bet(ref self: TContractState, amount: u256, event_id: u64, pick: EventResult ) ;
+    fn claim_reward(ref self: TContractState, event_id: u64 ) ;
 
     fn add_event(ref self: TContractState, name: ByteArray, category: ByteArray, binary: bool, home_team: ByteArray, away_team: ByteArray, start_time: u64, end_time: u64, option_a: ByteArray, option_b: ByteArray, option_c: ByteArray, option_d: ByteArray) -> u64 ;
     fn start_event(ref self: TContractState, event_id: u64) -> bool;

@@ -7,10 +7,11 @@ pub struct Config {
     pub admin: ContractAddress,
     pub treasury_fee: u64,
     pub treasury_address: ContractAddress,
-    pub id: u64
+    pub id: u64,
+    pub token: ContractAddress
 }
 
-#[derive(Drop, Serde, starknet::Store)]
+#[derive(Drop, Serde, Copy, starknet::Store, PartialEq)]
 #[allow(starknet::store_no_default_variant)]
 pub enum EventResult {
     Home,
