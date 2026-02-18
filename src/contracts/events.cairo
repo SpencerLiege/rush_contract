@@ -1,15 +1,18 @@
 #[starknet::contract]
 pub mod RushEvents {
 
-    use starknet::get_contract_address;
-use starknet::event::EventEmitter;
+    use starknet::get_block_timestamp;
+use starknet::get_contract_address;
+    use starknet::event::EventEmitter;
     use starknet::{get_caller_address, ContractAddress};
     use crate::interfaces::IRushEvents;
     use crate::types::{Config, PredictionEvent, Bet, EventResult};
     use crate::errors::Errors;
-    use crate::events::{EventAdded, EventStarted, EventEnded, EventResolved, EventArchived, BetPlaced};
+    use crate::events::{EventAdded, EventStarted, EventEnded, EventResolved, EventArchived, BetPlaced, RewardClaimed};
     use starknet::storage::{Map, StorageMapWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess, StoragePath, StoragePathEntry};
     use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+
+    const FEE_DENOM: u256 = 1000;
 
     #[storage]
     struct Storage {
@@ -19,6 +22,8 @@ use starknet::event::EventEmitter;
         event_participants_count: Map<u64, u64>,
         event_participant_exists: Map<(u64, ContractAddress), bool>,
         user_bet: Map<(ContractAddress, u64), Bet>,
+        user_event_count: Map<ContractAddress, u64>,
+        user_events: Map<(ContractAddress, u64), u64>
     }
 
     #[event]
@@ -29,11 +34,19 @@ use starknet::event::EventEmitter;
         EventEnded: EventEnded,
         EventResolved: EventResolved,
         EventArchived: EventArchived,
-        BetPlaced: BetPlaced
+        BetPlaced: BetPlaced,
+        RewardClaimed: RewardClaimed
     }
 
     #[constructor]
-    fn constructor() {}
+    fn constructor(ref self: ContractState, admin: ContractAddress, treasury_fee: u256, treasury_address: ContractAddress, token: ContractAddress) {
+        
+        self.config.admin.write(admin);
+        self.config.treasury_fee.write(treasury_fee);
+        self.config.treasury_address.write(treasury_address);
+        self.config.token.write(token);
+        
+    }
 
     #[abi(embed_v0)]
     impl RushEventImpl of IRushEvents<ContractState> {
@@ -64,8 +77,8 @@ use starknet::event::EventEmitter;
                 name: name.clone(), 
                 category: category.clone(), 
                 binary: binary,
-                start_time: 0, 
-                end_time: 0, 
+                start_time: start_time, 
+                end_time: end_time, 
                 started: false, 
                 ended: false, 
                 resolved: false, 
@@ -113,6 +126,10 @@ use starknet::event::EventEmitter;
             // get the event storage pointer
             let mut event: StoragePath = self.event.entry(event_id);
 
+            // ensure current time is greater or equal to start time
+            let now: u64 = get_block_timestamp();
+            assert(now >= event.start_time.read(), Errors::NOT_START_TIME);
+
             // validate event state
             assert(!event.started.read(), Errors::EVENT_ALREADY_STARTED);
 
@@ -141,6 +158,11 @@ use starknet::event::EventEmitter;
 
             // get the event storage pointer
             let mut event: StoragePath = self.event.entry(event_id);
+
+            
+            // ensure current time is greater or equal to start time
+            let now: u64 = get_block_timestamp();
+            assert(now >= event.end_time.read(), Errors::NOT_END_TIME);
 
             // validate the event state
             assert(event.started.read(), Errors::EVENT_NOT_STARTED);
@@ -370,6 +392,13 @@ use starknet::event::EventEmitter;
             // add participant for event
             self._add_event_participant(event_id);
 
+            // save the user event count and index
+            let current_count: u64 = self.user_event_count.read(caller);
+
+            self.user_events.write((caller, current_count), event_id);
+            
+            self.user_event_count.write(caller, current_count + 1);
+
             // save the user bet data
             let user: Bet = Bet {
                 user: caller,
@@ -379,10 +408,11 @@ use starknet::event::EventEmitter;
                 won: false,
                 reward: 0,
                 profit: 0,
-                refund: false
+                refund: false,
+                claimed: false
             };
 
-            self.user_bet.write((caller, event_id), user)
+            self.user_bet.write((caller, event_id), user);
 
             // emit the user bet event
             self.emit(BetPlaced {
@@ -398,20 +428,61 @@ use starknet::event::EventEmitter;
             // confirm status
             self._is_claimable(event_id);
 
-            // calculate fee
-            let config: Config = self.config.read()
-            let fee  = config.fee
+            let caller: ContractAddress = get_caller_address();
+            let mut user_bet: Bet = self.user_bet.read((caller, event_id));
 
+            // calculate fee
+            let config: Config = self.config.read();
+            let fee: u256  = (config.treasury_fee * user_bet.reward ) / FEE_DENOM;
+
+            let reward: u256 = user_bet.reward - fee;
+
+            let token: ContractAddress = config.token;
+            let treasury: ContractAddress = config.treasury_address;
+            
+            IERC20Dispatcher { contract_address:  token }
+                .transfer(caller, reward);
+
+            if user_bet.profit > 0 {
+                IERC20Dispatcher { contract_address: token }
+                    .transfer(treasury, fee);
+            }
+            
+            // mark as claimed
+            user_bet.claimed = true;
+            self.user_bet.write((caller, event_id), user_bet);
+
+            // emit event
+            self.emit(RewardClaimed {
+                user: caller,
+                event_id,
+                amount: reward,
+                fee
+            })
 
         }
 
-        // fn get_event(self: @ContractState) {}
+        fn get_event(self: @ContractState, event_id: u64) -> PredictionEvent {
+            self.event.read(event_id)
+        }
 
-        // fn get_all_events(self: @ContractState) {}
+        fn get_event_count(self: @ContractState) -> u64 {
+            let config: Config = self.config.read();
+            config.id
+        }
 
-        // fn get_user_bet(self: @ContractState) {}
+        fn get_user_bet(self: @ContractState, user: ContractAddress, event_id: u64) -> Bet {
+            self.user_bet.read((user, event_id))
+        }
 
-        // fn get_user_bets(self: @ContractState) {}
+        fn get_user_bet_count(self: @ContractState, user: ContractAddress) -> u64 {
+            self.user_event_count.read(user)
+        }
+
+        fn get_user_event_by_index(self: @ContractState, user: ContractAddress, index: u64) -> u64 {
+            self.user_events.read((user, index))
+        }
+
     }
 
     #[generate_trait]
@@ -506,7 +577,8 @@ use starknet::event::EventEmitter;
             // check if user is won round
             assert(user_bet.won, Errors::LOST_ROUND);
 
-            
+            // check if already claimed
+            assert(!user_bet.claimed, Errors::ALREADY_CLAIMED);
         }
     }
 }

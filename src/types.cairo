@@ -5,7 +5,7 @@ use starknet::ContractAddress;
 #[derive(Drop, Serde, Copy, starknet::Store)] 
 pub struct Config {
     pub admin: ContractAddress,
-    pub treasury_fee: u64,
+    pub treasury_fee: u256,
     pub treasury_address: ContractAddress,
     pub id: u64,
     pub token: ContractAddress
@@ -59,7 +59,8 @@ pub struct Bet {
     pub won: bool,
     pub reward: u256,
     pub profit: u256,
-    pub refund: bool
+    pub refund: bool,
+    pub claimed: bool
 }
 
 

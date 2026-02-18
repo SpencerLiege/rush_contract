@@ -17,11 +17,11 @@ pub trait IRushEvents<TContractState> {
     
     // Query messages
     fn get_event(self: @TContractState, event_id: u64 ) -> PredictionEvent ;
-    fn get_all_events(self: @TContractState) -> Array<PredictionEvent>;
-    
-    fn get_user_bet(self: @TContractState, user: ContractAddress, event_id: u64) -> Bet;
-    fn get_user_bets(self: @TContractState, user: ContractAddress) -> Array<Bet>;
+    fn get_event_count(self: @TContractState) -> u64;
 
+    fn get_user_bet(self: @TContractState, user: ContractAddress, event_id: u64) -> Bet;
+    fn get_user_bet_count(self: @TContractState, user: ContractAddress) -> u64;
+    fn get_user_event_by_index(self: @TContractState, user: ContractAddress, index: u64) -> u64;
 }
 
 // interface for price

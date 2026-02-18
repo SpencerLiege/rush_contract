@@ -56,3 +56,13 @@ pub struct BetPlaced {
     pub pick: EventResult,
     pub amount: u256
 }
+
+#[derive(Drop, starknet::Event)]
+pub struct RewardClaimed {
+    #[key]
+    pub user: ContractAddress,
+    #[key]
+    pub event_id: u64,
+    pub amount: u256,
+    pub fee: u256
+}
