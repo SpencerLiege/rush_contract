@@ -1,10 +1,8 @@
 #[starknet::contract]
 pub mod RushEvents {
 
-    use starknet::get_block_timestamp;
-use starknet::get_contract_address;
+    use starknet::{get_block_timestamp, get_contract_address,get_caller_address, ContractAddress};
     use starknet::event::EventEmitter;
-    use starknet::{get_caller_address, ContractAddress};
     use crate::interfaces::IRushEvents;
     use crate::types::{Config, PredictionEvent, Bet, EventResult};
     use crate::errors::Errors;
@@ -96,7 +94,8 @@ use starknet::get_contract_address;
                 option_a_pool: 0,
                 option_b_pool: 0,
                 option_c_pool: 0,
-                option_d_pool: 0
+                option_d_pool: 0,
+                participants: 0
             };
 
             // save the event
@@ -389,6 +388,10 @@ use starknet::get_contract_address;
             let total: u256 = event.total_pool.read();
             event.total_pool.write(total + amount);
 
+            // increase particpants count
+            let participants: u64 = event.participants.read();
+            event.participants.write(participants + 1 );
+
             // add participant for event
             self._add_event_participant(event_id);
 
@@ -542,7 +545,7 @@ use starknet::get_contract_address;
             list
         }
 
-        fn _is_bettable(self: @ContractState, event_id: u64 ) -> bool {
+        fn _is_bettable(self: @ContractState, event_id: u64 )  {
             // fetch the round data
             let event: PredictionEvent = self.event.read(event_id);
 
@@ -562,7 +565,7 @@ use starknet::get_contract_address;
             let caller: ContractAddress = get_caller_address();
             let exists: bool = self.event_participant_exists.read((event_id, caller));
 
-            exists
+            assert(!exists, Errors::CANNOT_PREDICT)
 
         }
 

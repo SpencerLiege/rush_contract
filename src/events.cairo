@@ -1,8 +1,11 @@
 
 
+use crate::types::RoundResult;
+use crate::types::Direction;
 use starknet::ContractAddress;
 use crate::types::EventResult;
 
+// PredictionEvent Events
 #[derive(Drop, starknet::Event)]
 pub struct EventAdded {
     #[key]
@@ -63,6 +66,61 @@ pub struct RewardClaimed {
     pub user: ContractAddress,
     #[key]
     pub event_id: u64,
+    pub amount: u256,
+    pub fee: u256
+}
+
+// Price prediction events
+#[derive(Drop, starknet::Event)]
+pub struct RoundStarted {
+    #[key]
+    pub round_id: u64 ,
+    pub start_time: u64,
+    pub start_price: u128
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct RoundLocked {
+    #[key]
+    pub round_id: u64 ,
+    pub lock_time: u64,
+    pub lock_price: u128
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct RoundEnded {
+    #[key]
+    pub round_id: u64 ,
+    pub end_time: u64,
+    pub end_price: u128
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct RoundExecuted {
+    #[key]
+    pub round_id: u64,
+    pub start_price: u128,
+    pub lock_price: u128,
+    pub end_price: u128,
+    pub result: RoundResult,
+    pub participants: u64
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PriceBetPlaced {
+    #[key]
+    pub round_id: u64,
+    pub user: ContractAddress,
+    pub amount: u256,
+    pub direction: Direction
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct PriceRewardClaimed  {
+    #[key]
+    pub user: ContractAddress,
+    #[key]
+    pub round_id: u64,
     pub amount: u256,
     pub fee: u256
 }

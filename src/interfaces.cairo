@@ -1,4 +1,4 @@
-use crate::types::EventResult;
+use crate::types::{EventResult, Direction};
 use starknet::ContractAddress;
 use rush_cairo::types::{PredictionEvent, Bet};
 
@@ -25,8 +25,15 @@ pub trait IRushEvents<TContractState> {
 }
 
 // interface for price
+#[starknet::interface]
+pub trait IRushPrice<TContractState> {
+    // Execute messages
+    fn place_bet(ref self: TContractState, round_id: u64, direction: Direction, amount: u256);
+    fn claim_reward(ref self: TContractState, round_id: u64);
 
+    fn execute_round(ref self: TContractState, asset_id: felt252) ;
 
+}
 
 
 // intterface for quest

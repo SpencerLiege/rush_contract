@@ -9,10 +9,15 @@ pub mod Errors {
     pub const EVENT_ALREADY_RESOLVED: felt252 = 'Event already resolved';
     pub const NOT_START_TIME: felt252 = 'Not yet start time';
     pub const NOT_END_TIME: felt252 = 'Not yet end time';
+    pub const ROUND_LOCKED: felt252 = 'Round locked';
+    pub const NOT_LOCK_TIME: felt252 = 'Not yet lock time';
+    pub const ROUND_ENDED: felt252 = 'Round ended';
     
     pub const PARTICIPANTS_EXISTS: felt252 = 'Participant already exists';
     pub const INVALID_AMOUNT: felt252 = 'Amount should be greater than 0';
     pub const BET_ALREADY_PLACED: felt252 = 'Bet already placed';
     pub const LOST_ROUND: felt252 = 'Lost round';
     pub const ALREADY_CLAIMED: felt252 = 'Reward already claimed';
+    pub const CANNOT_PREDICT: felt252 = 'Not bettable';
+
 }

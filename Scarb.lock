@@ -129,11 +129,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pragma_lib"
+version = "2.11.4"
+source = "git+https://github.com/astraly-labs/pragma-lib#edb55442d36565cbd99c226e38c4f8040efb774b"
+dependencies = [
+ "openzeppelin",
+]
+
+[[package]]
 name = "rush_cairo"
 version = "0.1.0"
 dependencies = [
  "openzeppelin",
  "openzeppelin_token",
+ "pragma_lib",
  "snforge_std",
 ]
 
