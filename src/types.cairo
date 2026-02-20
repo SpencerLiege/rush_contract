@@ -100,7 +100,7 @@ pub struct PricePrediction {
     pub participants: u64
 }
 
-#[derive(Drop, Serde, Copy, starknet::Store)]
+#[derive(Drop, Serde, Copy,  starknet::Store)]
 pub struct PriceBet {
     pub user: ContractAddress,
     pub id: u64,

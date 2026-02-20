@@ -1,8 +1,7 @@
 #[starknet::contract]
 pub mod RushPrice {
     use starknet::event::EventEmitter;
-use crate::types::PredictionEvent;
-use pragma_lib::abi::{IPragmaABIDispatcherTrait, PragmaPricesResponse, IPragmaABIDispatcher};
+    use pragma_lib::abi::{IPragmaABIDispatcherTrait, PragmaPricesResponse, IPragmaABIDispatcher};
     use pragma_lib::types::{DataType};
     use crate::interfaces::IRushPrice;
     use crate::errors::Errors;
@@ -93,6 +92,9 @@ use pragma_lib::abi::{IPragmaABIDispatcherTrait, PragmaPricesResponse, IPragmaAB
 
                 self._end_round(end_prev_round.id, price, self._get_participants(end_prev_round.id));
             }
+
+            config.id += 1;
+            self.config.write(config);
         }
 
         fn place_bet(ref self: ContractState, round_id: u64, direction: Direction, amount: u256) {
@@ -214,6 +216,49 @@ use pragma_lib::abi::{IPragmaABIDispatcherTrait, PragmaPricesResponse, IPragmaAB
                 amount: user_bet.reward,
                 fee
             })
+        }
+
+        fn get_round(self: @ContractState, round_id: u64) -> PricePrediction {
+            self.round.read(round_id)
+        }
+
+        fn get_config(self: @ContractState) -> Config {
+            self.config.read()
+        }
+
+        fn get_next_round(self: @ContractState) -> PricePrediction {
+            let config: Config = self.config.read();
+            self.round.read(config.id - 1)
+        }
+
+        fn get_live_round(self: @ContractState) -> PricePrediction {
+            let config: Config = self.config.read();
+            self.round.read(config.id - 2)
+        }
+
+        fn get_ended_round(self: @ContractState) -> PricePrediction {
+            let config: Config = self.config.read();
+            self.round.read(config.id - 3)
+        }
+
+        fn get_user_bet(self: @ContractState, user: ContractAddress, round_id: u64) -> PriceBet {
+            self.user_bet.read((user, round_id))
+        }
+
+        fn get_user_round_by_index(self: @ContractState, user: ContractAddress, index: u64) -> u64 {
+            self.user_rounds.read((user, index))
+        }
+
+        fn get_leaderboard(self: @ContractState, user: ContractAddress) -> Leaderboard {
+            self.leaderboard.read(user)
+        }
+
+        fn get_players_count(self: @ContractState) -> u64 {
+            self.players_count.read()
+        }
+
+        fn get_player_by_index(self: @ContractState, index: u64) -> ContractAddress {
+            self.players.read(index)
         }
     }
 
