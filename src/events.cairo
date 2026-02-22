@@ -124,3 +124,47 @@ pub struct PriceRewardClaimed  {
     pub amount: u256,
     pub fee: u256
 }
+
+// Quest events
+#[derive(Drop, starknet::Event)] 
+pub struct QuestCreated {
+    #[key]
+    pub quest_id: u64,
+    pub user: ContractAddress,
+    pub title: ByteArray,
+    pub entry_fee: u256,
+    pub stake: u256
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct QuestStarted {
+    #[key]
+    pub quest_id: u64,
+    pub started: bool
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct QuestEnded {
+    #[key]
+    pub quest_id: u64,
+    pub ended: bool,
+    pub participants: u64
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct QuestJoined {
+    #[key]
+    pub user: ContractAddress,
+    #[key]
+    pub quest_id: u64,
+    pub fee_paid: u256
+}
+
+#[derive(Drop, starknet::Event)]
+pub struct QuestRewardClaimed {
+    #[key]
+    pub user: ContractAddress,
+    #[key]
+    pub quest_id: u64,
+    pub amount: u256
+}

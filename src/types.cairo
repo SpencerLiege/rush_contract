@@ -123,3 +123,23 @@ pub struct Leaderboard {
     pub total_down: u64,
     pub profit: u256
 }
+
+#[derive(Drop, Serde, starknet::Store)]
+pub struct Quest {
+    pub id: u64,
+    pub user: ContractAddress,
+    pub title: ByteArray,
+    pub entry_fee: u256,
+    pub stake: u256,
+    pub participants: u64,
+    pub started: bool,
+    pub ended: bool
+}
+
+#[derive(Drop, Serde, starknet::Store)]
+pub struct UserGame {
+    pub user: ContractAddress ,
+    pub quest_id: u64,
+    pub claimed: bool,
+    pub amount_claimed: u256
+}

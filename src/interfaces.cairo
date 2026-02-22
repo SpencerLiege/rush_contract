@@ -1,6 +1,6 @@
 use crate::types::{Config, Leaderboard, PriceBet, PredictionEvent, Bet};
 use crate::types::PricePrediction;
-use crate::types::{EventResult, Direction};
+use crate::types::{EventResult, Direction, UserGame, Quest};
 use starknet::ContractAddress;
 
 
@@ -54,3 +54,23 @@ pub trait IRushPrice<TContractState> {
 
 
 // intterface for quest
+#[starknet::interface]
+pub trait IRushQuest<TContractState> {
+    // execute messages
+    fn create_quest(ref self: TContractState, name: ByteArray, entry_fee: u256, stake: u256);
+    fn start_quest(ref self: TContractState, quest_id: u64);
+    fn end_quest(ref self: TContractState, quest_id: u64);
+
+    fn join_quest(ref self: TContractState, quest_id: u64);
+    fn claim_reward(ref self: TContractState, quest_id: u64, amount: u256);
+
+    // query messages
+    fn get_quest(self: @TContractState, quest_id: u64) -> Quest;
+    fn get_quest_count(self: @TContractState) -> u64;
+
+    fn get_user_quest(self: @TContractState, user: ContractAddress, quest_id: u64) -> Quest;
+    fn get_user_quest_count(self: @TContractState, user: ContractAddress) -> u64;
+    fn get_user_quest_id(self: @TContractState, user: ContractAddress, index: u64) -> (u64, u64);
+
+    fn get_user_game(self: @TContractState, user: ContractAddress, quest_id: u64) -> UserGame;
+}

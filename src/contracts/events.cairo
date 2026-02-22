@@ -43,7 +43,7 @@ pub mod RushEvents {
         self.config.treasury_fee.write(treasury_fee);
         self.config.treasury_address.write(treasury_address);
         self.config.token.write(token);
-        
+        self.config.id.write(1);
     }
 
     #[abi(embed_v0)]
