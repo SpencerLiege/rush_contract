@@ -33,7 +33,7 @@ pub trait IRushPrice<TContractState> {
     fn place_bet(ref self: TContractState, round_id: u64, direction: Direction, amount: u256);
     fn claim_reward(ref self: TContractState, round_id: u64);
 
-    fn execute_round(ref self: TContractState, asset_id: felt252) ;
+    fn execute_round(ref self: TContractState, asset_id: felt252, price: u128) ;
 
     // query messages
     fn get_round(self: @TContractState, round_id: u64) -> PricePrediction;
@@ -73,4 +73,15 @@ pub trait IRushQuest<TContractState> {
     fn get_user_quest_id(self: @TContractState, user: ContractAddress, index: u64) -> (u64, u64);
 
     fn get_user_game(self: @TContractState, user: ContractAddress, quest_id: u64) -> UserGame;
+}
+
+
+// Interface for transfers
+#[starknet::interface]
+pub trait IRushERC20<TContractState> {
+    fn transfer(ref self: TContractState, to: ContractAddress, amount: u256);
+    fn approve(ref self: TContractState, to: ContractAddress, amount: u256);
+    fn transfer_from(ref self: TContractState, from: ContractAddress, to: ContractAddress, amount: u256);
+
+    fn get_allowance(self: @TContractState, owner: ContractAddress, spender: ContractAddress) -> u256;
 }

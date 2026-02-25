@@ -1,15 +1,12 @@
 #[starknet::contract]
 pub mod RushPrice {
     use starknet::event::EventEmitter;
-    use pragma_lib::abi::{IPragmaABIDispatcherTrait, PragmaPricesResponse, IPragmaABIDispatcher};
-    use pragma_lib::types::{DataType};
-    use crate::interfaces::IRushPrice;
+    use crate::interfaces::{IRushPrice,IRushERC20Dispatcher, IRushERC20DispatcherTrait};
     use crate::errors::Errors;
     use crate::types::{PricePrediction, PriceBet, Config, Direction, RoundResult, Leaderboard};
     use crate::events::{RoundStarted, RoundLocked, RoundEnded, RoundExecuted,PriceBetPlaced, PriceRewardClaimed};
     use starknet::{get_caller_address, get_contract_address, get_block_timestamp, ContractAddress};
     use starknet::storage::{Map, StorageMapWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess, StoragePath, StoragePathEntry};
-    use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
 
     const FEE_DENOM: u256 = 1000;
@@ -59,9 +56,8 @@ pub mod RushPrice {
     #[abi(embed_v0)]
     impl RustPriceImpl of IRushPrice<ContractState>  {
         
-        fn execute_round(ref self: ContractState, asset_id: felt252) {
+        fn execute_round(ref self: ContractState, asset_id: felt252, price: u128) {
             let mut config: Config = self.config.read();
-            let price: u128 = self._get_price(asset_id);
             self._is_admin();
 
             // automate round 
@@ -112,7 +108,7 @@ pub mod RushPrice {
             assert(user_bet.amount.read() == 0, Errors::BET_ALREADY_PLACED);
 
             assert(amount > 0, Errors::INVALID_AMOUNT);
-            IERC20Dispatcher { contract_address: self.config.token.read()}
+            IRushERC20Dispatcher { contract_address: self.config.token.read()}
                 .transfer_from(caller, contract_address, amount);
 
             // save the user bet
@@ -198,11 +194,11 @@ pub mod RushPrice {
             let treasury: ContractAddress = config.treasury_address;
 
                         
-            IERC20Dispatcher { contract_address:  token }
+            IRushERC20Dispatcher { contract_address:  token }
                 .transfer(caller, reward);
 
             if user_bet.profit > 0 {
-                IERC20Dispatcher { contract_address: token }
+                IRushERC20Dispatcher { contract_address: token }
                     .transfer(treasury, fee);
             }
 
@@ -407,7 +403,7 @@ pub mod RushPrice {
             if round.result.read() == Some(RoundResult::Draw) {
                 let config: Config = self.config.read();
 
-                IERC20Dispatcher { contract_address: config.token }
+                IRushERC20Dispatcher { contract_address: config.token }
                     .transfer(config.treasury_address, round.total_pool.read());
             }
 
@@ -430,15 +426,6 @@ pub mod RushPrice {
 
             assert(config.admin == caller, Errors::NOT_ADMIN);
 
-        }
-
-        fn _get_price(self: @ContractState, asset_id: felt252 ) -> u128 {
-
-            let oracle_dispatcher: IPragmaABIDispatcher = IPragmaABIDispatcher { contract_address: self.oracle_address.read()  };
-
-            let output: PragmaPricesResponse = oracle_dispatcher.get_data_median(DataType::SpotEntry(asset_id));
-
-            output.price
         }
 
         fn _is_bettable(self: @ContractState, round_id: u64) {

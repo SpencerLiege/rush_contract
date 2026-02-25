@@ -3,12 +3,11 @@ pub mod RushQuest {
 
     use starknet::{ get_contract_address,get_caller_address, ContractAddress};
     use starknet::event::EventEmitter;
-    use crate::interfaces::IRushQuest;
+    use crate::interfaces::{IRushQuest, IRushERC20Dispatcher, IRushERC20DispatcherTrait};
     use crate::types::{Config, Quest, UserGame};
     use crate::errors::Errors;
     use crate::events::{QuestCreated, QuestStarted, QuestEnded, QuestJoined, QuestRewardClaimed};
-    use starknet::storage::{Map, StorageMapWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess, StoragePath, StoragePathEntry};
-    use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use starknet::storage::{Map, StorageMapWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess};
     
     #[storage]
     struct Storage {
@@ -51,6 +50,10 @@ pub mod RushQuest {
             let caller: ContractAddress = get_caller_address();
             let mut config: Config = self.config.read();
             let quest_id: u64 = config.id + 1;
+
+            // send the stake amount
+            IRushERC20Dispatcher { contract_address: self.config.token.read() }
+                .transfer_from(caller, get_contract_address(), stake);
 
             let quest: Quest = Quest {
                 id: quest_id,
@@ -132,7 +135,7 @@ pub mod RushQuest {
             assert(!quest.ended, Errors::EVENT_ALREADY_ENDED);
 
             // pay fee
-            IERC20Dispatcher { contract_address: self.config.token.read() }
+            IRushERC20Dispatcher { contract_address: self.config.token.read() }
                 .transfer_from(caller, contract_address, quest.entry_fee);
             
             // add participant
@@ -163,7 +166,7 @@ pub mod RushQuest {
             assert(caller == user_game.user, Errors::UNAUTHORIZED);
 
             // send the reward to the user
-            IERC20Dispatcher { contract_address: self.config.token.read()}
+            IRushERC20Dispatcher { contract_address: self.config.token.read()}
                 .transfer(caller, amount);
 
             // update the user data

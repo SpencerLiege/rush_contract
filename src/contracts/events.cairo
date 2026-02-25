@@ -3,12 +3,11 @@ pub mod RushEvents {
 
     use starknet::{get_block_timestamp, get_contract_address,get_caller_address, ContractAddress};
     use starknet::event::EventEmitter;
-    use crate::interfaces::IRushEvents;
+    use crate::interfaces::{IRushEvents, IRushERC20Dispatcher, IRushERC20DispatcherTrait};
     use crate::types::{Config, PredictionEvent, Bet, EventResult};
     use crate::errors::Errors;
     use crate::events::{EventAdded, EventStarted, EventEnded, EventResolved, EventArchived, BetPlaced, RewardClaimed};
     use starknet::storage::{Map, StorageMapWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess, StoragePath, StoragePathEntry};
-    use openzeppelin_token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
     const FEE_DENOM: u256 = 1000;
 
@@ -346,7 +345,7 @@ pub mod RushEvents {
             assert(user_bet.amount.read() == 0, Errors::BET_ALREADY_PLACED);
             
             assert(amount > 0, Errors::INVALID_AMOUNT);
-            IERC20Dispatcher { contract_address:  self.config.token.read() }
+            IRushERC20Dispatcher { contract_address:  self.config.token.read() }
                 .transfer_from(caller, contract_address, amount);
 
             // update the event data
@@ -443,11 +442,11 @@ pub mod RushEvents {
             let token: ContractAddress = config.token;
             let treasury: ContractAddress = config.treasury_address;
             
-            IERC20Dispatcher { contract_address:  token }
+            IRushERC20Dispatcher { contract_address:  token }
                 .transfer(caller, reward);
 
             if user_bet.profit > 0 {
-                IERC20Dispatcher { contract_address: token }
+                IRushERC20Dispatcher { contract_address: token }
                     .transfer(treasury, fee);
             }
             
