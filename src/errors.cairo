@@ -1,3 +1,5 @@
+//! This module defines error messages used in the application.
+
 pub mod Errors {
     pub const UNAUTHORIZED: felt252 = 'Unauthorized access';
     pub const NOT_ADMIN: felt252 = 'Caller is not admin';

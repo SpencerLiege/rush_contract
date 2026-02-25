@@ -1,4 +1,4 @@
-
+/// This module defines the events emitted by the PredictionEvent contract, PricePrediction contract, and Quest contract. 
 
 use crate::types::RoundResult;
 use crate::types::Direction;

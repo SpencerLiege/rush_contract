@@ -4,7 +4,21 @@ use crate::types::{EventResult, Direction, UserGame, Quest};
 use starknet::ContractAddress;
 
 
-// Interface for events
+/// Interface for Events prediction
+/// 
+/// The available traits in this interface includes:
+/// - place_bet: for users to place their bets on an event
+/// - claim_reward: for users to claim their rewards after an event is resolved
+/// - add_event: for admin to add a new event
+/// - start_event: for admin to start an event
+/// - end_event: for admin to end an event
+/// - resolve_event: for admin to resolve an event with the result
+/// - archive_event: for admin to archive an event after it's resolved
+/// - get_event: for users to get the details of an event
+/// - get_event_count: for users to get the total number of events
+/// - get_user_bet: for users to get their bet on a specific event
+/// - get_user_bet_count: for users to get the total number of bets they have placed
+///     
 #[starknet::interface]
 pub trait IRushEvents<TContractState> {
     // Execute messages
@@ -26,7 +40,23 @@ pub trait IRushEvents<TContractState> {
     fn get_user_event_by_index(self: @TContractState, user: ContractAddress, index: u64) -> u64;
 }
 
-// interface for price
+/// Interface for price prediction
+/// 
+/// The available traits in this interface includes:
+/// - place_bet: for users to place their bets on a price prediction round
+/// - claim_reward: for users to claim their rewards after a round is resolved
+/// - execute_round: for admin to execute a round with the actual price
+/// - get_round: for users to get the details of a specific round
+/// - get_config: for users to get the configuration of the price prediction game
+/// - get_next_round: for users to get the details of the next round
+/// - get_live_round: for users to get the details of the currently live round
+/// - get_ended_round: for users to get the details of the most recently ended round
+/// - get_user_bet: for users to get their bet on a specific round
+/// - get_user_round_by_index: for users to get the round id of a specific bet
+/// - get_leaderboard: for users to get the leaderboard of the price prediction game
+/// - get_players_count: for users to get the total number of players who have participated in the price prediction game
+/// - get_player_by_index: for users to get the address of a player by their index in the list of players who have participated in the price prediction game
+/// 
 #[starknet::interface]
 pub trait IRushPrice<TContractState> {
     // Execute messages
@@ -53,7 +83,21 @@ pub trait IRushPrice<TContractState> {
 }
 
 
-// intterface for quest
+/// Interface for quests
+/// 
+/// The available traits in this interface includes:    
+/// - create_quest: for admin to create a new quest
+/// - start_quest: for admin to start a quest
+/// - end_quest: for admin to end a quest
+/// - join_quest: for users to join a quest
+/// - claim_reward: for users to claim their rewards after a quest is ended
+/// - get_quest: for users to get the details of a specific quest
+/// - get_quest_count: for users to get the total number of quests
+/// - get_user_quest: for users to get their quest details for a specific quest
+/// - get_user_quest_count: for users to get the total number of quests they have joined
+/// - get_user_quest_id: for users to get the quest id of a specific quest they have joined
+/// - get_user_game: for users to get the game details of a specific quest they have joined
+/// 
 #[starknet::interface]
 pub trait IRushQuest<TContractState> {
     // execute messages
@@ -76,7 +120,14 @@ pub trait IRushQuest<TContractState> {
 }
 
 
-// Interface for transfers
+/// Interface for ERC20 token interactions
+/// 
+/// The available traits in this interface includes:    
+/// - transfer: for users to transfer tokens to another address
+/// - approve: for users to approve another address to spend their tokens
+/// - transfer_from: for users to transfer tokens from another address to a recipient address, given that they have been approved to do so
+/// - get_allowance: for users to check the amount of tokens that they have approved another address to spend on their behalf
+/// Note: This interface is designed to be used with the Rush platform's ERC20 token, and may not be compatible with other ERC20 tokens without modification.
 #[starknet::interface]
 pub trait IRushERC20<TContractState> {
     fn transfer(ref self: TContractState, to: ContractAddress, amount: u256);

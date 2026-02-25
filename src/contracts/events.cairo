@@ -1,3 +1,11 @@
+//! RushEvents contract and implementation
+//!
+//! This contract manages prediction events, allowing users to place bets on various outcomes and claim rewards based on the results. It includes functionalities for adding, starting, ending, resolving, and archiving events, as well as placing bets and claiming rewards.
+//! The contract ensures secure access control, proper event state management, and accurate reward calculations, while emitting relevant events for transparency and tracking.
+//! The implementation includes internal functions for validating admin access, checking event existence, managing event participants, and verifying bet and claim conditions.
+//! 
+//! # Exam
+
 #[starknet::contract]
 pub mod RushEvents {
 

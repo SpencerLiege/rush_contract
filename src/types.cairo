@@ -1,4 +1,7 @@
-
+/// This file contains the data structres used in the prediction market contract.
+/// 
+/// It includes structs and enums for the configuarations, events prediction, events bets, prrice prediction, price bets, leaderboard, quests, and user games
+/// 
 
 use starknet::ContractAddress;
 
