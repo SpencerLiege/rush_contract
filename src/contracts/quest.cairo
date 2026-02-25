@@ -1,3 +1,26 @@
+//! # RushQuest
+//!
+//! A creator-owned quest system where:
+//! - Users create token-staked quests
+//! - Participants join by paying an entry fee
+//! - Quest owner controls start/end lifecycle
+//! - Rewards are distributed manually
+//!
+//! ## Economic Model
+//!
+//! - Quest Creator stakes `stake` tokens upfront.
+//! - Participants pay `entry_fee` to join.
+//! - All tokens remain in contract custody.
+//! - Rewards are manually distributed via `claim_reward`.
+//!
+//! NOTE:
+//! This contract currently does NOT enforce:
+//! - Reward caps
+//! - Treasury fee deductions
+//! - Automatic payout logic
+//!
+//! All reward logic is trusted to quest creator discretion.
+
 #[starknet::contract]
 pub mod RushQuest {
 
@@ -9,6 +32,11 @@ pub mod RushQuest {
     use crate::events::{QuestCreated, QuestStarted, QuestEnded, QuestJoined, QuestRewardClaimed};
     use starknet::storage::{Map, StorageMapWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess};
     
+    // ------------------------------------------------------------------------
+    // STORAGE
+    // ------------------------------------------------------------------------
+
+    /// Core contract storage
     #[storage]
     struct Storage {
         config: Config,
@@ -23,6 +51,10 @@ pub mod RushQuest {
         
     }
 
+     // ------------------------------------------------------------------------
+    // EVENTS
+    // ------------------------------------------------------------------------
+
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
@@ -33,6 +65,16 @@ pub mod RushQuest {
         QuestRewardClaimed: QuestRewardClaimed
     }
 
+    // ------------------------------------------------------------------------
+    // CONSTRUCTOR
+    // ------------------------------------------------------------------------
+
+    /// @notice Initializes contract configuration
+    ///
+    /// @param admin Contract administrator
+    /// @param treasury_fee Reserved for future fee logic
+    /// @param treasury_address Reserved treasury receiver
+    /// @param token ERC20 token used for staking and entry fees
     #[constructor] 
     fn constructor(ref self: ContractState, admin: ContractAddress, treasury_fee: u256, treasury_address: ContractAddress, token: ContractAddress) {
         
@@ -43,9 +85,22 @@ pub mod RushQuest {
         
     }
 
+    // ------------------------------------------------------------------------
+    // EXTERNAL IMPLEMENTATION
+    // ------------------------------------------------------------------------
+
+
     #[abi(embed_v0)]
     impl RushQuestImpl of IRushQuest<ContractState> {
 
+        /// @notice Creates a new quest
+        ///
+        /// Flow:
+        /// 1. Creator stakes `stake` tokens
+        /// 2. Quest metadata stored
+        /// 3. Quest ID incremented
+        ///
+        /// @dev Stake is locked in contract custody.
         fn create_quest(ref self: ContractState, name: ByteArray, entry_fee: u256, stake: u256) {
             let caller: ContractAddress = get_caller_address();
             let mut config: Config = self.config.read();
@@ -83,6 +138,10 @@ pub mod RushQuest {
             });
         }
 
+        /// @notice Starts a quest
+        ///
+        /// Only quest creator may start.
+        /// Quest must not already be started or ended.
         fn start_quest(ref self: ContractState, quest_id: u64) {
 
             let mut quest = self.quests.read(quest_id);
@@ -104,6 +163,10 @@ pub mod RushQuest {
             });
         }
 
+        /// @notice Ends a quest
+        ///
+        /// Only creator may end.
+        /// Must have started.
         fn end_quest(ref self: ContractState, quest_id: u64) {
             let mut quest: Quest = self.quests.read(quest_id);
 
@@ -124,7 +187,13 @@ pub mod RushQuest {
             })
         }
         
-
+        /// @notice Join a quest
+        ///
+        /// Requirements:
+        /// - Quest must be started
+        /// - Quest must not be ended
+        ///
+        /// Entry fee is transferred into contract custody.
         fn join_quest(ref self: ContractState, quest_id: u64) {
             // get the quest data
             let mut quest: Quest = self.quests.read(quest_id);
@@ -159,6 +228,13 @@ pub mod RushQuest {
             });
         }
 
+        /// @notice Claims quest reward
+        ///
+        ///  IMPORTANT:
+        /// - No verification of quest completion
+        /// - No cap enforcement
+        /// - No treasury fee deduction
+        /// - Fully trust-based payout
         fn claim_reward(ref self: ContractState, quest_id: u64, amount: u256) {
             // confirm access
             let caller: ContractAddress = get_caller_address();
@@ -183,7 +259,9 @@ pub mod RushQuest {
 
         }
         
-        // QUERIES
+        // -------------------------
+        // VIEW FUNCTIONS
+        // -------------------------
         fn get_quest(self: @ContractState, quest_id: u64) -> Quest {
 
             self.quests.read(quest_id)
@@ -211,6 +289,10 @@ pub mod RushQuest {
             self.user_game.read((user, quest_id))
         }
     }
+
+    // ------------------------------------------------------------------------
+    // INTERNALS
+    // ------------------------------------------------------------------------
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {

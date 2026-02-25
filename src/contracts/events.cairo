@@ -1,11 +1,23 @@
-//! RushEvents contract and implementation
+//! # RushEvents
 //!
-//! This contract manages prediction events, allowing users to place bets on various outcomes and claim rewards based on the results. It includes functionalities for adding, starting, ending, resolving, and archiving events, as well as placing bets and claiming rewards.
-//! The contract ensures secure access control, proper event state management, and accurate reward calculations, while emitting relevant events for transparency and tracking.
-//! The implementation includes internal functions for validating admin access, checking event existence, managing event participants, and verifying bet and claim conditions.
-//! 
-//! # Exam
-
+//! A decentralized prediction market protocol built on Starknet.
+//!
+//! ## Overview
+//! This contract enables:
+//! - Admin-controlled creation of prediction events
+//! - ERC20-backed user betting
+//! - Binary and multi-option markets
+//! - Proportional pool-based reward distribution
+//! - Treasury fee extraction on profit only
+//! - Secure lifecycle enforcement
+//!
+//! ## Lifecycle
+//! Created → Started → Ended → Resolved → Archived
+//!
+//! ## Reward Model
+//! reward = (bet_amount × losing_pool) / winning_pool + bet_amount
+//!
+//! If opposing liquidity is zero → refund (no profit, no fee)
 #[starknet::contract]
 pub mod RushEvents {
 
@@ -17,8 +29,14 @@ pub mod RushEvents {
     use crate::events::{EventAdded, EventStarted, EventEnded, EventResolved, EventArchived, BetPlaced, RewardClaimed};
     use starknet::storage::{Map, StorageMapWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess, StoragePath, StoragePathEntry};
 
+    /// Treasury fee denominator (1000 = 100%)
     const FEE_DENOM: u256 = 1000;
 
+    // ------------------------------------------------------------------------
+    // STORAGE
+    // ------------------------------------------------------------------------
+
+    /// Core contract storage layout
     #[storage]
     struct Storage {
         config: Config,
@@ -31,6 +49,11 @@ pub mod RushEvents {
         user_events: Map<(ContractAddress, u64), u64>
     }
 
+    // ------------------------------------------------------------------------
+    // EVENTS
+    // ------------------------------------------------------------------------
+
+    /// All protocol-emitted events
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
@@ -43,6 +66,15 @@ pub mod RushEvents {
         RewardClaimed: RewardClaimed
     }
 
+    // ------------------------------------------------------------------------
+    // CONSTRUCTOR
+    // ------------------------------------------------------------------------
+
+    /// @notice Initializes the protocol configuration
+    /// @param admin Protocol administrator
+    /// @param treasury_fee Fee applied on user profit (denominator = 1000)
+    /// @param treasury_address Address receiving protocol fees
+    /// @param token ERC20 token used for staking
     #[constructor]
     fn constructor(ref self: ContractState, admin: ContractAddress, treasury_fee: u256, treasury_address: ContractAddress, token: ContractAddress) {
         
@@ -53,10 +85,16 @@ pub mod RushEvents {
         self.config.id.write(1);
     }
 
+    // ------------------------------------------------------------------------
+    // EXTERNAL IMPLEMENTATION
+    // ------------------------------------------------------------------------
+
     #[abi(embed_v0)]
     impl RushEventImpl of IRushEvents<ContractState> {
 
-
+        /// @notice Creates a new prediction event
+        /// @dev Only callable by admin
+        /// @return Newly created event_id
         fn add_event(
             ref self: ContractState, 
             name: ByteArray, 
@@ -121,7 +159,9 @@ pub mod RushEvents {
             
             config.id - 1
         }
-
+        
+        /// @notice Starts an event once start_time has passed
+        /// @dev Enforces timestamp and lifecycle validation
         fn start_event(ref self: ContractState, event_id: u64) -> bool {
             // verify admin access
             self._is_admin();
@@ -153,7 +193,9 @@ pub mod RushEvents {
             event.started.read()
 
         }
-
+        
+        /// @notice Ends betting for an event
+        /// @dev Requires event to be started and end_time reached
         fn end_event(ref self: ContractState, event_id: u64) -> bool {
 
             // verify admin access
@@ -188,6 +230,13 @@ pub mod RushEvents {
             event.ended.read()
         }
 
+        /// @notice Resolves an event and pre-calculates rewards
+        /// @dev Rewards are stored in user state and claimed later
+        ///
+        /// Reward formula:
+        /// reward = (user_amount × losing_pool) / winning_pool + user_amount
+        ///
+        /// If either pool is zero → full refund (no profit, no fee)
         fn resolve_event(ref self: ContractState, event_id: u64, result: EventResult) -> bool {
 
             // verify admin access
@@ -322,6 +371,8 @@ pub mod RushEvents {
             event.resolved.read()
         }
 
+        /// @notice Archives a resolved event
+        /// @dev Administrative cleanup action
         fn archive_event(ref self: ContractState, event_id: u64) {
             // verify admin access
             self._is_admin();
@@ -339,6 +390,16 @@ pub mod RushEvents {
 
         }
 
+        /// @notice Places an ERC20-backed bet
+        /// @param amount Amount of tokens to stake
+        /// @param event_id Event identifier
+        /// @param pick Selected outcome
+        ///
+        /// Requirements:
+        /// - Event started
+        /// - Event not ended
+        /// - Event not resolved
+        /// - Caller not already participant
         fn place_bet(ref self: ContractState,  amount: u256, event_id: u64, pick: EventResult) {
             // confirm caller access
             self._is_bettable(event_id);
@@ -434,6 +495,11 @@ pub mod RushEvents {
 
         }
 
+        /// @notice Claims reward for a winning bet
+        /// @dev Treasury fee applied only on profit
+        ///
+        /// Fee formula:
+        /// fee = (treasury_fee × reward) / 1000
         fn claim_reward(ref self: ContractState, event_id: u64) {
             // confirm status
             self._is_claimable(event_id);
@@ -471,29 +537,42 @@ pub mod RushEvents {
             })
 
         }
+        
+        // -------------------------
+        // VIEW FUNCTIONS
+        // -------------------------
 
+        /// @notice Returns event data
         fn get_event(self: @ContractState, event_id: u64) -> PredictionEvent {
             self.event.read(event_id)
         }
 
+        /// @notice Returns total created event count
         fn get_event_count(self: @ContractState) -> u64 {
             let config: Config = self.config.read();
             config.id
         }
 
+        /// @notice Returns user bet data
         fn get_user_bet(self: @ContractState, user: ContractAddress, event_id: u64) -> Bet {
             self.user_bet.read((user, event_id))
         }
 
+        /// @notice Returns number of events user participated in
         fn get_user_bet_count(self: @ContractState, user: ContractAddress) -> u64 {
             self.user_event_count.read(user)
         }
 
+        /// @notice Returns event_id by user index
         fn get_user_event_by_index(self: @ContractState, user: ContractAddress, index: u64) -> u64 {
             self.user_events.read((user, index))
         }
 
     }
+    
+    // ------------------------------------------------------------------------
+    // INTERNAL FUNCTIONS
+    // ------------------------------------------------------------------------
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {

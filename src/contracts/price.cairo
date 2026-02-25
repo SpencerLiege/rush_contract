@@ -1,3 +1,28 @@
+//! # RushPrice
+//!
+//! A time-based price prediction protocol built on Starknet.
+//!
+//! ## Overview
+//! - Admin-driven round execution
+//! - ERC20-backed directional betting (Up / Down)
+//! - Automated round lifecycle (Start → Lock → End → Execute)
+//! - Proportional pool-based reward distribution
+//! - Treasury fee on profit only
+//! - On-chain leaderboard tracking
+//!
+//! ## Round Timeline (default configuration)
+//! - Start: T
+//! - Lock: T + 300 seconds
+//! - End:  T + 600 seconds
+//!
+//! ## Reward Formula
+//! reward = (user_amount × losing_pool) / winning_pool + user_amount
+//!
+//! If one side has zero liquidity → full refund.
+//!
+//! Draw scenario → treasury receives total pool.
+
+
 #[starknet::contract]
 pub mod RushPrice {
     use starknet::event::EventEmitter;
@@ -8,9 +33,14 @@ pub mod RushPrice {
     use starknet::{get_caller_address, get_contract_address, get_block_timestamp, ContractAddress};
     use starknet::storage::{Map, StorageMapWriteAccess, StorageMapReadAccess, StoragePointerReadAccess, StoragePointerWriteAccess, StoragePath, StoragePathEntry};
 
-
+    /// Treasury fee denominator (1000 = 100%)
     const FEE_DENOM: u256 = 1000;
 
+    // ------------------------------------------------------------------------
+    // STORAGE
+    // ------------------------------------------------------------------------
+
+    /// Core protocol storage
     #[storage]
     struct Storage {
         config: Config,
@@ -30,7 +60,12 @@ pub mod RushPrice {
         leaderboard: Map<ContractAddress, Leaderboard>,
 
     }
+    
+    // ------------------------------------------------------------------------
+    // EVENTS
+    // ------------------------------------------------------------------------
 
+    /// All protocol events
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
@@ -42,6 +77,15 @@ pub mod RushPrice {
         RewardClaimed: PriceRewardClaimed
     }
 
+    // ------------------------------------------------------------------------
+    // CONSTRUCTOR
+    // ------------------------------------------------------------------------
+
+    /// @notice Initializes protocol configuration
+    /// @param admin Protocol administrator
+    /// @param treasury_fee Fee applied on profit (denominator = 1000)
+    /// @param treasury_address Address receiving protocol fees
+    /// @param token ERC20 token used for staking
     #[constructor]
     fn constructor(ref self: ContractState, admin: ContractAddress, treasury_fee: u256, treasury_address: ContractAddress, token: ContractAddress) {
         self.config.admin.write(admin);
@@ -51,9 +95,22 @@ pub mod RushPrice {
         self.config.id.write(1);
     }
 
+    // ------------------------------------------------------------------------
+    // EXTERNAL IMPLEMENTATION
+    // ------------------------------------------------------------------------
+
     #[abi(embed_v0)]
     impl RustPriceImpl of IRushPrice<ContractState>  {
         
+        /// @notice Executes the round lifecycle automation
+        ///
+        /// Behavior:
+        /// - Starts first round
+        /// - Locks previous round
+        /// - Ends and resolves older round
+        /// - Increments round id
+        ///
+        /// @dev Only callable by admin
         fn execute_round(ref self: ContractState, price: u128) {
             let mut config: Config = self.config.read();
             self._is_admin();
@@ -91,6 +148,15 @@ pub mod RushPrice {
             self.config.write(config);
         }
 
+        /// @notice Places a directional bet (Up / Down)
+        ///
+        /// Requirements:
+        /// - Round started
+        /// - Round not locked
+        /// - Round not ended
+        /// - User has not already bet
+        ///
+        /// Transfers ERC20 tokens into contract custody.
         fn place_bet(ref self: ContractState, round_id: u64, direction: Direction, amount: u256) {
 
             // confirm the round is bettable
@@ -175,6 +241,10 @@ pub mod RushPrice {
             })
         }
 
+        
+        /// @notice Claims reward for a winning round
+        ///
+        /// Fee is applied only if user made profit.
         fn claim_reward(ref self: ContractState, round_id: u64) {
             // confitm status
             self._is_claimable(round_id);
@@ -212,29 +282,40 @@ pub mod RushPrice {
             })
         }
 
+        // -------------------------
+        // VIEW FUNCTIONS
+        // -------------------------
+
+        
+        /// Returns round data
         fn get_round(self: @ContractState, round_id: u64) -> PricePrediction {
             self.round.read(round_id)
         }
 
+        /// Returns protocol config
         fn get_config(self: @ContractState) -> Config {
             self.config.read()
         }
 
+        /// Returns most recently created round
         fn get_next_round(self: @ContractState) -> PricePrediction {
             let config: Config = self.config.read();
             self.round.read(config.id - 1)
         }
 
+        /// Returns currently live round
         fn get_live_round(self: @ContractState) -> PricePrediction {
             let config: Config = self.config.read();
             self.round.read(config.id - 2)
         }
 
+        /// Returns last executed round
         fn get_ended_round(self: @ContractState) -> PricePrediction {
             let config: Config = self.config.read();
             self.round.read(config.id - 3)
         }
 
+        /// Returns user bet details
         fn get_user_bet(self: @ContractState, user: ContractAddress, round_id: u64) -> PriceBet {
             self.user_bet.read((user, round_id))
         }
@@ -243,6 +324,7 @@ pub mod RushPrice {
             self.user_rounds.read((user, index))
         }
 
+        /// Returns leaderboard data
         fn get_leaderboard(self: @ContractState, user: ContractAddress) -> Leaderboard {
             self.leaderboard.read(user)
         }
@@ -256,8 +338,18 @@ pub mod RushPrice {
         }
     }
 
+    // ------------------------------------------------------------------------
+    // INTERNAL FUNCTIONS
+    // ------------------------------------------------------------------------
     #[generate_trait]
     impl InternalImpl of InternalTrait  {
+
+        /// Starts a new prediction round
+        ///
+        /// Timeline:
+        /// - start_time = now
+        /// - lock_time  = now + 300s
+        /// - end_time   = now + 600s
         fn _start_round(ref self: ContractState, round_id: u64, price: u128) {
 
             // timestamps
@@ -295,6 +387,7 @@ pub mod RushPrice {
 
         }
 
+        /// Locks a round (no more betting)
         fn _lock_round(ref self: ContractState, round_id: u64, price: u128) {
             let mut round: StoragePath = self.round.entry(round_id);
 
@@ -308,6 +401,14 @@ pub mod RushPrice {
             });
         }
 
+        /// Ends and executes a round
+        ///
+        /// Determines result:
+        /// - lock_price > end_price → Down
+        /// - lock_price < end_price → Up
+        /// - equal → Draw
+        ///
+        /// Rewards are computed proportionally.
         fn _end_round(ref self: ContractState, round_id: u64, price: u128, participants: Array<ContractAddress>) {
             let mut round: StoragePath = self.round.entry(round_id);
 
@@ -418,6 +519,7 @@ pub mod RushPrice {
 
         }
 
+        /// Ensures caller is admin
         fn _is_admin(self: @ContractState) {
             let config: Config = self.config.read();
             let caller: ContractAddress = get_caller_address();
@@ -426,6 +528,7 @@ pub mod RushPrice {
 
         }
 
+        // Validates round is currently bettable
         fn _is_bettable(self: @ContractState, round_id: u64) {
             // fetch the round data
             let round: PricePrediction = self.round.read(round_id);
@@ -446,7 +549,7 @@ pub mod RushPrice {
 
         }
 
-    
+        /// Validates reward claim eligibility
         fn _is_claimable(self: @ContractState, round_id: u64) {
             // fetch user bet data
             let caller: ContractAddress = get_caller_address();
@@ -501,7 +604,7 @@ pub mod RushPrice {
             list
         }
 
-       }
+    }
 
 
 }
