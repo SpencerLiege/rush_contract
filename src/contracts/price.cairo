@@ -14,8 +14,7 @@ pub mod RushPrice {
     #[storage]
     struct Storage {
         config: Config,
-        oracle_address: ContractAddress,
-        
+       
         round: Map<u64, PricePrediction>,
         round_participant: Map<(u64, u64), ContractAddress>,
         round_participant_count: Map<u64, u64>,
@@ -44,19 +43,18 @@ pub mod RushPrice {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, admin: ContractAddress, treasury_fee: u256, treasury_address: ContractAddress, token: ContractAddress, oracle: ContractAddress) {
+    fn constructor(ref self: ContractState, admin: ContractAddress, treasury_fee: u256, treasury_address: ContractAddress, token: ContractAddress) {
         self.config.admin.write(admin);
         self.config.treasury_fee.write(treasury_fee);
         self.config.treasury_address.write(treasury_address);
         self.config.token.write(token);
-        self.oracle_address.write(oracle);
         self.config.id.write(1);
     }
 
     #[abi(embed_v0)]
     impl RustPriceImpl of IRushPrice<ContractState>  {
         
-        fn execute_round(ref self: ContractState, asset_id: felt252, price: u128) {
+        fn execute_round(ref self: ContractState, price: u128) {
             let mut config: Config = self.config.read();
             self._is_admin();
 

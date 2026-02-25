@@ -33,7 +33,7 @@ pub trait IRushPrice<TContractState> {
     fn place_bet(ref self: TContractState, round_id: u64, direction: Direction, amount: u256);
     fn claim_reward(ref self: TContractState, round_id: u64);
 
-    fn execute_round(ref self: TContractState, asset_id: felt252, price: u128) ;
+    fn execute_round(ref self: TContractState, price: u128) ;
 
     // query messages
     fn get_round(self: @TContractState, round_id: u64) -> PricePrediction;
